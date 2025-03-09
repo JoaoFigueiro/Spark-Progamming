@@ -1,23 +1,23 @@
-from pyspark.sql import SparkSession, Window
-from pyspark.sql import functions as f
+from pyspark.sql import SparkSession
 
 from lib.logger import Log4j
 
 if __name__ == "__main__":
     spark = SparkSession \
         .builder \
-        .appName("Agg Demo") \
-        .master("local[2]") \
+        .appName("Shuffle Join Demo") \
+        .master("local[3]") \
         .getOrCreate()
 
     logger = Log4j(spark)
 
-    summary_df = spark.read.parquet("data/summary.parquet")
+    flight_time_df1 = spark.read.json("data/d1/")
+    flight_time_df2 = spark.read.json("data/d2/")
 
-    running_total_window = Window.partitionBy("Country") \
-        .orderBy("WeekNumber") \
-        .rowsBetween(-2, Window.currentRow)
+    spark.conf.set("spark.sql.shuffle.partitions", 3)
 
-    summary_df.withColumn("RunningTotal",
-                          f.sum("InvoiceValue").over(running_total_window)) \
-        .show()
+    join_expr = flight_time_df1.id == flight_time_df2.id
+    join_df = flight_time_df1.join(flight_time_df2, join_expr, "inner")
+
+    join_df.collect()
+    input("press a key to stop...")
